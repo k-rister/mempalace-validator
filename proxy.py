@@ -443,9 +443,33 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             resp = urllib.request.urlopen(
                 urllib.request.Request(self.upstream_url, method="GET",
                                        headers=self._headers_for_upstream()), timeout=300)
+        except urllib.error.HTTPError as e:
+            # Upstream that does not implement the optional GET stream answers
+            # 404/405; that is normal protocol negotiation, not a failure.
+            if e.code in (404, 405):
+                try:
+                    self._send(e.code, {"Content-Type": "text/plain"}, b"")
+                except Exception:
+                    pass
+                return
+            report("engine-error", reason=f"GET proxy upstream error: {e}")
+            try:
+                self._send(502, {"Content-Type": "text/plain"}, str(e).encode())
+            except Exception:
+                pass
+            return
+        except Exception as e:
+            report("engine-error", reason=f"GET proxy failed: {e}")
+            try:
+                self._send(502, {"Content-Type": "text/plain"}, str(e).encode())
+            except Exception:
+                pass
+            return
+        try:
             self.send_response(resp.status)
             for k, v in dict(resp.headers).items():
-                if k.lower() in ("transfer-encoding", "connection"):
+                if k.lower() in ("transfer-encoding", "connection",
+                                 "server", "date"):
                     continue
                 self.send_header(k, v)
             self.end_headers()
@@ -455,11 +479,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     break
                 self.wfile.write(chunk)
         except Exception as e:
-            report("engine-error", reason=f"GET proxy failed: {e}")
-            try:
-                self._send(502, {"Content-Type": "text/plain"}, str(e).encode())
-            except Exception:
-                pass
+            report("engine-error", reason=f"GET stream copy failed: {e}")
 
     def do_DELETE(self):
         # session termination: pass through
