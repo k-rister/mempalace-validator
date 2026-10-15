@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /home/krister/mempalace-validator/proxy.py --host 127.0.0.1 --port 8766
+ExecStart=/usr/bin/python3 %h/mempalace-validator/proxy.py --host 127.0.0.1 --port 8766
 Restart=always
 RestartSec=2
 
