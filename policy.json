@@ -9,7 +9,7 @@
     "pr-reviews": "reviews",
     "reference": "references"
   },
-  "known_wings": ["CommonDataModel", "bench-coremark", "bench-stream", "bench-trafficgen", "codex", "crucible", "crucible-dev-tools", "ephemeral-buffer-mcp", "krister-setup", "linux-dataplane-accelerator", "multiplex", "rickshaw", "tool-bpf"],
+  "known_wings": ["CommonDataModel", "bench-coremark", "bench-stream", "bench-trafficgen", "codex-cli", "crucible", "crucible-dev-tools", "ephemeral-buffer-mcp", "krister-setup", "linux-dataplane-accelerator", "multiplex", "rickshaw", "tool-bpf"],
   "agent_wing_pattern": "^wing_[a-z0-9][a-z0-9_-]*$",
   "known_agents": ["codex", "claude", "antigravity"],
   "duplicate_threshold": 0.9
