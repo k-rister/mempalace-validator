@@ -202,8 +202,13 @@ action/tool/wing; used by the periodic audit (CLAUDE.md maintenance procedure).
   machine (searched ~, /opt; only caches/logs). If its agents run through
   shared codex/claude configs they are covered; otherwise locate and switch
   its config when found.
-- P5 pending: CLAUDE.md Enforcement section update (validator live; manual
-  checks are fallback). Suggested as a follow-up edit to the protocol doc.
+- P5 done: protocol Enforcement section replaced with live validator rules
+  (report paths, policy.json governance, rejection handling, engine-error
+  canary, fallback procedure, antigravity coverage caveat); Maintenance
+  procedure now names the decision report as the primary drift signal.
+  NOTE: the protocol doc is a single canonical file, /home/krister/ai-directives.md,
+  symlinked as BOTH ~/.claude/CLAUDE.md and ~/.codex/AGENTS.md — edit only the
+  canonical file.
 - Notes: upstream mempalace 3.10.0; initialize responses are plain JSON;
   proxy strips its own minted session ids before forwarding (upstream is
   sessionless). check_duplicate ~0.1s warm (first call in a session can be
