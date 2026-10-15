@@ -188,7 +188,7 @@ action/tool/wing; used by the periodic audit (CLAUDE.md maintenance procedure).
 - Service: ~/.config/systemd/user/mempalace-validator.service.
 - Optional later: push to GitHub (private) for durability — not required.
 
-## 13. Status (2026-10-14)
+## 13. Status (2026-10-14, antigravity closed same day)
 - P1-P3 done: proxy + policy engine deployed at /home/krister/mempalace-validator
   (git), 13/13 unit tests, live smoke verified: alias normalization (prs ->
   pull-requests write landed correctly), unknown-room rejection, duplicate
@@ -198,10 +198,11 @@ action/tool/wing; used by the periodic audit (CLAUDE.md maintenance procedure).
   (127.0.0.1:8766). codex (~/.codex/config.toml) and claude code
   (~/.claude.json, 2 project scopes) switched 8765 -> 8766; backups at
   *.bak-validator. New client sessions enforce from day one.
-- P4 open item: antigravity — no MCP config referencing 8765 found on this
-  machine (searched ~, /opt; only caches/logs). If its agents run through
-  shared codex/claude configs they are covered; otherwise locate and switch
-  its config when found.
+- P4 open item CLOSED (2026-10-14): antigravity's MCP config was
+  ~/.gemini/config/mcp_config.json (serverUrl key); switched 8765 -> 8766.
+  All three clients (codex, claude code, antigravity) now route through the
+  proxy. Also found: ~/.gemini/GEMINI.md is a third symlink to the canonical
+  protocol file ~/ai-directives.md.
 - P5 done: protocol Enforcement section replaced with live validator rules
   (report paths, policy.json governance, rejection handling, engine-error
   canary, fallback procedure, antigravity coverage caveat); Maintenance
