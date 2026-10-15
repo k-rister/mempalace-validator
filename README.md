@@ -6,14 +6,24 @@ A streamable-HTTP MCP proxy between every local MCP client (codex,
 claude code, antigravity) and the MemPalace server, so policy is
 enforced at the filing boundary instead of by agent discipline.
 
+The full prose protocol (filing rules, maintenance/audit procedure,
+policy-change governance, proxy-down fallback) lives in the deployer's
+shared agent-directives file and is intentionally not bundled in this
+repo; `policy.json` in the repo is the canonical template for the
+enforceable rules.
+
 ## What it does
 - Normalizes legacy room aliases (`prs`/`pull_requests` -> `pull-requests`,
   `pr-review`/`pr-reviews` -> `reviews`, `reference` -> `references`).
-- Rejects writes to rooms outside the 11-room canonical set, including
-  `update_drawer` moves (drift prevention).
+- Rejects writes to rooms outside the 11-room canonical set
+  (`decisions`, `architecture`, `implementation`, `testing`, `workflow`,
+  `pull-requests`, `reviews`, `feedback`, `references`, `status`, `diary`),
+  including `update_drawer` moves (drift prevention).
 - Validates wings: project wings from an allowlist; `wing_<agent>` diary
   wings auto-allowed by pattern; model-version/task-name/capitalized wings
   rejected. `diary_write` agent names are validated too (they seed wings).
+  The two wing styles are a deliberate two-category convention — do not
+  converge on one.
 - Hard-blocks near-duplicate `add_drawer` calls via upstream
   `mempalace_check_duplicate` (threshold 0.9).
 - `checkpoint` validation is atomic: one bad item rejects the whole call.
