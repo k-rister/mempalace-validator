@@ -180,7 +180,7 @@ action/tool/wing; used by the periodic audit (CLAUDE.md maintenance procedure).
 - D7: proxy port 8766.
 
 ## 12. Placement (user-approved)
-- Code: /home/krister/mempalace-validator — dedicated first-party repo,
+- Code: ~/mempalace-validator — dedicated first-party repo,
   own git. NOT in a project workspace (codex-qwen) and NOT in /opt
   (that's for vendored third-party installs, e.g. mcp-jira-server).
 - Config + reports: ~/.mempalace/policy.json, validator-report.jsonl,
@@ -189,7 +189,7 @@ action/tool/wing; used by the periodic audit (CLAUDE.md maintenance procedure).
 - Optional later: push to GitHub (private) for durability — not required.
 
 ## 13. Status (2026-10-14, antigravity closed same day)
-- P1-P3 done: proxy + policy engine deployed at /home/krister/mempalace-validator
+- P1-P3 done: proxy + policy engine deployed at ~/mempalace-validator
   (git), 13/13 unit tests, live smoke verified: alias normalization (prs ->
   pull-requests write landed correctly), unknown-room rejection, duplicate
   hard-block (similarity 1.0), read pass-through, per-client attribution via
@@ -207,7 +207,7 @@ action/tool/wing; used by the periodic audit (CLAUDE.md maintenance procedure).
   (report paths, policy.json governance, rejection handling, engine-error
   canary, fallback procedure, antigravity coverage caveat); Maintenance
   procedure now names the decision report as the primary drift signal.
-  NOTE: the protocol doc is a single canonical file, /home/krister/ai-directives.md,
+  NOTE: the protocol doc is a single canonical file, ~/ai-directives.md,
   symlinked as BOTH ~/.claude/CLAUDE.md and ~/.codex/AGENTS.md — edit only the
   canonical file.
 - P6 done (2026-10-15): `report` summary subcommand — the last open item from
@@ -218,6 +218,11 @@ action/tool/wing; used by the periodic audit (CLAUDE.md maintenance procedure).
   canary line; `started` lines reported separately as process generations.
   12 unit tests (suite now 25/25). jq recipes in the monitoring runbook remain
   for request-log latency views.
+- P7 done (2026-10-15): public-push prep — all commit authors scrubbed to the
+  neutral identity (krister <krister@localhost>; repo-local git identity set
+  so it cannot recur), .gitignore for pycache, service unit uses %h instead
+  of an absolute home path (installed copy synced), this doc's absolute home
+  paths generalized. Push to GitHub pending.
 - Notes: upstream mempalace 3.10.0; initialize responses are plain JSON;
   proxy strips its own minted session ids before forwarding (upstream is
   sessionless). check_duplicate ~0.1s warm (first call in a session can be
