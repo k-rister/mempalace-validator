@@ -186,7 +186,8 @@ action/tool/wing; used by the periodic audit (CLAUDE.md maintenance procedure).
 - Config + reports: ~/.mempalace/policy.json, validator-report.jsonl,
   validator-requests.jsonl (alongside the palace itself).
 - Service: ~/.config/systemd/user/mempalace-validator.service.
-- Optional later: push to GitHub (private) for durability — not required.
+- Push (2026-10-15): public on GitHub (k-rister/mempalace-validator) —
+  for sharing, not just durability (no private repos on the free plan).
 
 ## 13. Status (2026-10-14, antigravity closed same day)
 - P1-P3 done: proxy + policy engine deployed at ~/mempalace-validator
@@ -222,7 +223,7 @@ action/tool/wing; used by the periodic audit (CLAUDE.md maintenance procedure).
   neutral identity (krister <krister@localhost>; repo-local git identity set
   so it cannot recur), .gitignore for pycache, service unit uses %h instead
   of an absolute home path (installed copy synced), this doc's absolute home
-  paths generalized. Push to GitHub pending.
+  paths generalized. Pushed to GitHub as public (see section 12).
 - Notes: upstream mempalace 3.10.0; initialize responses are plain JSON;
   proxy strips its own minted session ids before forwarding (upstream is
   sessionless). check_duplicate ~0.1s warm (first call in a session can be
