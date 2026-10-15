@@ -282,7 +282,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
     server_version = "mempalace-validator/0.1"
     upstream_url = "http://127.0.0.1:8765/mcp"
     upstream = "http://127.0.0.1:8765"
-    client_names = {}
+    client_names = {}   # issued session id -> client name
     _name_lock = threading.Lock()
 
     def log_message(self, fmt, *args):  # quiet; we log to JSONL ourselves
@@ -293,13 +293,16 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         for k, v in self.headers.items():
             if k.lower() in ("host", "content-length", "connection"):
                 continue
+            if k.lower() == "mcp-session-id" and v in ProxyHandler.client_names:
+                continue  # our own issued id: the upstream does not use sessions
             out[k] = v
         return out
 
     def _send(self, status, headers, body):
         self.send_response(status)
         for k, v in headers.items():
-            if k.lower() in ("transfer-encoding", "content-length", "connection"):
+            if k.lower() in ("transfer-encoding", "content-length", "connection",
+                             "server", "date"):
                 continue
             self.send_header(k, v)
         self.send_header("Content-Length", str(len(body)))
@@ -379,12 +382,16 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                                    "error": {"code": -32000,
                                              "message": f"upstream unreachable: {e}"}}).encode())
             return
-        if self.path == "/mcp" and self.headers.get("Mcp-Session-Id") is None \
-                and self._client_info:
-            sid = rheaders.get("Mcp-Session-Id")
-            if sid:
+        if self.path == "/mcp":
+            incoming_sid = self.headers.get("Mcp-Session-Id")
+            if incoming_sid is None and self._client_info:
+                # Upstream issues no session id; we mint one so the client's
+                # subsequent requests carry it back for attribution.
+                import uuid
+                sid = uuid.uuid4().hex
                 with ProxyHandler._name_lock:
                     ProxyHandler.client_names[sid] = self._client_info
+                rheaders["Mcp-Session-Id"] = sid
         self._send(status, rheaders, rbody)
         reqlog(client=client, path=self.path, tool=tool_name,
                upstream_status=status, ms=round((time.time() - t0) * 1000))
