@@ -187,3 +187,24 @@ action/tool/wing; used by the periodic audit (CLAUDE.md maintenance procedure).
   validator-requests.jsonl (alongside the palace itself).
 - Service: ~/.config/systemd/user/mempalace-validator.service.
 - Optional later: push to GitHub (private) for durability — not required.
+
+## 13. Status (2026-10-14)
+- P1-P3 done: proxy + policy engine deployed at /home/krister/mempalace-validator
+  (git), 13/13 unit tests, live smoke verified: alias normalization (prs ->
+  pull-requests write landed correctly), unknown-room rejection, duplicate
+  hard-block (similarity 1.0), read pass-through, per-client attribution via
+  minted Mcp-Session-Id (upstream 3.10.0 issues no session id).
+- P4 done: systemd user service `mempalace-validator` enabled+running
+  (127.0.0.1:8766). codex (~/.codex/config.toml) and claude code
+  (~/.claude.json, 2 project scopes) switched 8765 -> 8766; backups at
+  *.bak-validator. New client sessions enforce from day one.
+- P4 open item: antigravity — no MCP config referencing 8765 found on this
+  machine (searched ~, /opt; only caches/logs). If its agents run through
+  shared codex/claude configs they are covered; otherwise locate and switch
+  its config when found.
+- P5 pending: CLAUDE.md Enforcement section update (validator live; manual
+  checks are fallback). Suggested as a follow-up edit to the protocol doc.
+- Notes: upstream mempalace 3.10.0; initialize responses are plain JSON;
+  proxy strips its own minted session ids before forwarding (upstream is
+  sessionless). check_duplicate ~0.1s warm (first call in a session can be
+  slow — approval/semantic-index overhead, not proxy latency).
