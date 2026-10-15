@@ -13,11 +13,13 @@ import argparse
 import json
 import os
 import re
+import sys
 import threading
 import time
 import http.server
 import urllib.request
 import urllib.error
+from datetime import datetime
 
 HOME = os.path.expanduser("~")
 POLICY_PATH = os.environ.get("MEMPALACE_POLICY", os.path.join(HOME, ".mempalace", "policy.json"))
@@ -492,7 +494,214 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             self._send(502, {"Content-Type": "text/plain"}, str(e).encode())
 
 
+# ---------- report summary (read-only; never touches the proxy hot path) ----------
+
+_WINDOW_RE = re.compile(r"^(\d+)([hds])$")
+_UNIT_SECONDS = {"s": 1, "h": 3600, "d": 86400}
+_TS_FORMATS = ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d")
+_ACTION_ORDER = ("allowed", "normalized", "rejected", "duplicate-block",
+                 "duplicate-warning", "engine-error", "passthrough")
+
+
+def _parse_ts(value):
+    """File timestamps look like 2026-10-14T21:58:49-0500; return epoch or None."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%dT%H:%M:%S%z").timestamp()
+    except ValueError:
+        return None
+
+
+def _fmt_ts(epoch):
+    return datetime.fromtimestamp(epoch).astimezone().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def parse_since(spec, now=None):
+    """--since spec -> epoch cutoff, or None for 'all'. Naive ISO input is local time."""
+    now = time.time() if now is None else now
+    spec = spec.strip()
+    if spec.lower() == "all":
+        return None
+    m = _WINDOW_RE.fullmatch(spec)
+    if m:
+        return now - int(m.group(1)) * _UNIT_SECONDS[m.group(2)]
+    for fmt in _TS_FORMATS:
+        try:
+            dt = datetime.strptime(spec, fmt)
+        except ValueError:
+            continue
+        if dt.tzinfo is None:
+            dt = dt.astimezone()  # naive -> presumed system local time
+        return dt.timestamp()
+    raise ValueError(f"unparseable --since value: {spec!r} (use e.g. 7d, 24h, an ISO date, or 'all')")
+
+
+def summarize_report(lines, cutoff=None):
+    """Aggregate validator-report.jsonl lines into a summary dict.
+
+    lines: iterable of raw JSONL strings; malformed lines are counted, not fatal.
+    cutoff: epoch seconds; lines with a parseable ts strictly before it are skipped.
+    """
+    summary = {
+        "cutoff": cutoff,
+        "lines_in_window": 0,
+        "malformed": 0,
+        "decisions_by_action": {},
+        "started_count": 0,
+        "last_started": None,
+        "by_client": {},
+        "by_wing": {},
+        "engine_error_reasons": {},
+        "last_engine_error": None,
+        "window_end": None,
+        "details": [],
+    }
+    for raw in lines:
+        raw = raw.strip()
+        if not raw:
+            continue
+        try:
+            obj = json.loads(raw)
+            if not isinstance(obj, dict):
+                raise ValueError
+        except ValueError:
+            summary["malformed"] += 1
+            continue
+        ts = _parse_ts(obj.get("ts"))
+        if cutoff is not None and ts is not None and ts < cutoff:
+            continue
+        summary["lines_in_window"] += 1
+        if ts is not None and (summary["window_end"] is None or ts > summary["window_end"]):
+            summary["window_end"] = ts
+        action = obj.get("action") or "-"
+        if action == "started":
+            summary["started_count"] += 1
+            if ts is not None and (summary["last_started"] is None or ts > summary["last_started"]):
+                summary["last_started"] = ts
+            continue
+        by_action = summary["decisions_by_action"]
+        by_action[action] = by_action.get(action, 0) + 1
+        client = obj.get("client") or "(unattributed)"
+        by_client = summary["by_client"].setdefault(client, {})
+        by_client[action] = by_client.get(action, 0) + 1
+        wing = obj.get("wing")
+        if wing:
+            summary["by_wing"][wing] = summary["by_wing"].get(wing, 0) + 1
+        if action == "engine-error":
+            reason = obj.get("reason") or "(no reason)"
+            reasons = summary["engine_error_reasons"]
+            reasons[reason] = reasons.get(reason, 0) + 1
+            if ts is not None and (summary["last_engine_error"] is None or ts > summary["last_engine_error"]):
+                summary["last_engine_error"] = ts
+        if action != "allowed":
+            summary["details"].append(obj)
+    return summary
+
+
+def _order_actions(actions):
+    known = {a: i for i, a in enumerate(_ACTION_ORDER)}
+    return sorted(actions, key=lambda a: (known.get(a, len(_ACTION_ORDER)), a))
+
+
+def _detail_note(obj):
+    if obj.get("reason"):
+        return obj["reason"].splitlines()[0]
+    if obj.get("field"):
+        return f"{obj['field']}: {obj.get('from')} -> {obj.get('to')}"
+    if obj.get("duplicates"):
+        return f"duplicates: {', '.join(obj['duplicates'])} (similarities {obj.get('similarities')})"
+    return ""
+
+
+def render_text(summary, since_spec, detail=False):
+    lines = ["mempalace-validator report",
+             f"window: {_fmt_ts(summary['cutoff']) if summary['cutoff'] else 'all'} -> "
+             f"{_fmt_ts(summary['window_end']) if summary['window_end'] else 'n/a'}  "
+             f"(since {since_spec})  lines: {summary['lines_in_window']}  "
+             f"malformed: {summary['malformed']}",
+             ""]
+    lines.append("decisions by action:")
+    actions = summary["decisions_by_action"]
+    if actions:
+        width = max(len(a) for a in actions)
+        for action in _order_actions(actions):
+            lines.append(f"  {action.ljust(width)}  {actions[action]}")
+    else:
+        lines.append("  (none)")
+    if summary["started_count"]:
+        lines.append(f"  (process starts: {summary['started_count']}, last "
+                     f"{_fmt_ts(summary['last_started'])} — excluded from decision counts)")
+    lines += ["", "by client:"]
+    by_client = summary["by_client"]
+    if by_client:
+        for client in sorted(by_client, key=lambda c: (-sum(by_client[c].values()), c)):
+            breakdown = ", ".join(f"{a} {n}" for a, n in sorted(by_client[client].items(),
+                                                                key=lambda kv: (-kv[1], kv[0])))
+            lines.append(f"  {client.ljust(20)} {sum(by_client[client].values()):<4} {breakdown}")
+    else:
+        lines.append("  (none)")
+    lines += ["", "by wing (drawer-level writes only):"]
+    by_wing = summary["by_wing"]
+    if by_wing:
+        for wing in sorted(by_wing, key=lambda w: (-by_wing[w], w)):
+            lines.append(f"  {wing.ljust(20)} {by_wing[wing]}")
+    else:
+        lines.append("  (none)")
+    lines += ["", "engine errors:"]
+    reasons = summary["engine_error_reasons"]
+    if reasons:
+        for reason in sorted(reasons, key=lambda r: (-reasons[r], r)):
+            lines.append(f"  {reasons[reason]:<4} {reason}")
+        if summary["last_engine_error"]:
+            lines.append(f"  last: {_fmt_ts(summary['last_engine_error'])}")
+    else:
+        lines.append("  (none — fail-open canary quiet)")
+    if detail and summary["details"]:
+        lines += ["", "non-allowed decisions in window:"]
+        for obj in sorted(summary["details"], key=lambda o: o.get("ts") or ""):
+            lines.append(f"  {obj.get('ts') or '-'}  {str(obj.get('action') or '-').ljust(16)} "
+                         f"{str(obj.get('client') or '(unattributed)').ljust(18)} "
+                         f"{obj.get('tool') or '-'}  {_detail_note(obj)}")
+    return "\n".join(lines)
+
+
+def render_json(summary):
+    return json.dumps(summary, indent=2)
+
+
+def run_report(argv):
+    ap = argparse.ArgumentParser(description="Summarize the validator decision report (read-only).")
+    ap.add_argument("--since", default="7d",
+                    help="window: 7d, 24h, 90s, ISO date/datetime, or 'all' (default 7d)")
+    ap.add_argument("--json", action="store_true", help="machine-readable output")
+    ap.add_argument("--detail", action="store_true",
+                    help="list every non-allowed decision in the window")
+    ap.add_argument("--file", default=REPORT_PATH,
+                    help="decision report path (default: %(default)s)")
+    args = ap.parse_args(argv)
+    try:
+        cutoff = parse_since(args.since)
+    except ValueError as e:
+        print(str(e), file=sys.stderr)
+        return 2
+    try:
+        with open(args.file) as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        print(f"no decision report at {args.file}", file=sys.stderr)
+        return 1
+    summary = summarize_report(lines, cutoff)
+    if args.json:
+        print(render_json(summary))
+    else:
+        print(render_text(summary, args.since, detail=args.detail))
+    return 0
+
+
 def main():
+    if len(sys.argv) >= 2 and sys.argv[1] == "report":
+        sys.exit(run_report(sys.argv[2:]))
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8766)

@@ -210,6 +210,14 @@ action/tool/wing; used by the periodic audit (CLAUDE.md maintenance procedure).
   NOTE: the protocol doc is a single canonical file, /home/krister/ai-directives.md,
   symlinked as BOTH ~/.claude/CLAUDE.md and ~/.codex/AGENTS.md — edit only the
   canonical file.
+- P6 done (2026-10-15): `report` summary subcommand — the last open item from
+  section 6. `python3 proxy.py report [--since 7d|24h|90s|ISO|all] [--json]
+  [--detail] [--file]`: read-only aggregation of validator-report.jsonl —
+  decisions by action, by client (unknown/unattributed as visible buckets),
+  by wing (drawer-level writes only), engine-error reasons + last-occurrence
+  canary line; `started` lines reported separately as process generations.
+  12 unit tests (suite now 25/25). jq recipes in the monitoring runbook remain
+  for request-log latency views.
 - Notes: upstream mempalace 3.10.0; initialize responses are plain JSON;
   proxy strips its own minted session ids before forwarding (upstream is
   sessionless). check_duplicate ~0.1s warm (first call in a session can be
