@@ -1,0 +1,12 @@
+[Unit]
+Description=MemPalace filing validator (MCP proxy, 127.0.0.1:8766)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/krister/mempalace-validator/proxy.py --host 127.0.0.1 --port 8766
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target
