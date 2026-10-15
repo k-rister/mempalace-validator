@@ -67,3 +67,6 @@ cannot stop direct low-level MCP calls, and Codex hooks cannot rewrite tool
 arguments. Consumer-side: no MemPalace upstream changes. Code lives in
 `~/mempalace-validator` (first-party personal infra, own git repo); config and
 reports live in `~/.mempalace/`.
+
+## License
+Apache License 2.0 — see [LICENSE](LICENSE).
